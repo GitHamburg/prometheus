@@ -29,6 +29,7 @@ import (
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/relabel"
+	"github.com/prometheus/prometheus/pkg/textparse"
 	"github.com/prometheus/prometheus/pkg/value"
 	"github.com/prometheus/prometheus/storage"
 )
@@ -52,10 +53,11 @@ type Target struct {
 	// Additional URL parmeters that are part of the target URL.
 	params url.Values
 
-	mtx        sync.RWMutex
-	lastError  error
-	lastScrape time.Time
-	health     TargetHealth
+	mtx          sync.RWMutex
+	lastError    error
+	lastScrape   time.Time
+	health       TargetHealth
+	metadataFunc func(string) (textparse.MetricType, string, bool)
 }
 
 // NewTarget creates a reasonably configured target for querying.
@@ -70,6 +72,23 @@ func NewTarget(labels, discoveredLabels labels.Labels, params url.Values) *Targe
 
 func (t *Target) String() string {
 	return t.URL().String()
+}
+
+// Metadata returns type and help metadata for the given metric.
+func (t *Target) Metadata(metric string) (textparse.MetricType, string, bool) {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+
+	if t.metadataFunc == nil {
+		return textparse.MetricTypeUnknown, "", false
+	}
+	return t.metadataFunc(metric)
+}
+
+func (t *Target) setMetadataFunc(f func(string) (textparse.MetricType, string, bool)) {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	t.metadataFunc = f
 }
 
 // hash returns an identifying hash for the target.

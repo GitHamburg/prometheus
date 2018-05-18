@@ -237,6 +237,7 @@ const (
 type MetricType string
 
 const (
+	MetricTypeUnknown   = ""
 	MetricTypeCounter   = "counter"
 	MetricTypeGauge     = "gauge"
 	MetricTypeHistogram = "histogram"
